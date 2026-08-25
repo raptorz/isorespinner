@@ -1,13 +1,15 @@
 # isorespinner
 Linuxium's script to respin an Ubuntu* desktop ISO and optionally add/remove functionality like kernels/repositories/packages/files/boot parameters etc., run pre and post commands and add support for a 32-bit bootloader. Copyright (C) 2022 Ian W. Morrison (linuxium@linuxium.com.au)
 
+This repository includes Linux Mint 22 support. Linux Mint 22 images are handled as Ubuntu 24.04 LTS (Noble) based images and use the modern GRUB/EFI ISO layout.
+
 
 
 This script is a refinement of 'isorespin.sh' (http://url.linuxium.com.au/isorespin_sh) which was initially based on the information documented on the following sites:
 https://help.ubuntu.com/community/LiveCDCustomization (shared under a Creative Commons Attribution-ShareAlike 3.0 License available at https://help.ubuntu.com/community/License)
 https://wiki.ubuntu.com/KernelTeam/GitKernelBuild (shared under a Creative Commons Attribution-ShareAlike 3.0 License available at https://help.ubuntu.com/community/License)
 and then further developed by Linuxium (linuxium@linuxium.com.au).
-Version 1.0.0 to 1.0.2: This work is licensed under GNU GPL version 3.
+Version 1.0.0 to 1.0.3: This work is licensed under GNU GPL version 3.
 
 Linuxium's script to respin an Ubuntu, Ubuntu Unity, Kubuntu, Lubuntu, Ubuntu Budgie, Ubuntu GNOME, Ubuntu MATE, Xubuntu or Linux Mint desktop ISO and optionally add/remove functionality like kernels/repositories/packages/files/boot parameters etc., run pre and post commands and add support for a 32-bit bootloader.
 Copyright (C) 2022 Ian W. Morrison (linuxium@linuxium.com.au).

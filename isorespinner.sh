@@ -4,7 +4,7 @@
 #	https://help.ubuntu.com/community/LiveCDCustomization (shared under a Creative Commons Attribution-ShareAlike 3.0 License available at https://help.ubuntu.com/community/License)
 #	https://wiki.ubuntu.com/KernelTeam/GitKernelBuild (shared under a Creative Commons Attribution-ShareAlike 3.0 License available at https://help.ubuntu.com/community/License)
 #	and then further developed by Linuxium (linuxium@linuxium.com.au).
-#	Version 1.0.0 to 1.0.2: This work is licensed under GNU GPL version 3.
+#	Version 1.0.0 to 1.0.3: This work is licensed under GNU GPL version 3.
 #	
 #	Linuxium's script to respin an Ubuntu, Ubuntu Unity, Kubuntu, Lubuntu, Ubuntu Budgie, Ubuntu GNOME, Ubuntu MATE, Xubuntu or Linux Mint desktop ISO and optionally add/remove
 #	functionality like kernels/repositories/packages/files/boot parameters etc., run pre and post commands and add support for a 32-bit bootloader.
@@ -23,7 +23,7 @@
 #	You should have received a copy of the GNU General Public License
 #	along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-VERSION="1.0.2" # Add support for Kinetic Kudu (22.10) and Ubuntu-Unity ISOs
+VERSION="1.0.3" # Add support for Linux Mint 22 (Ubuntu Noble 24.04 base) ISOs
 MAINLINE_URL="http://kernel.ubuntu.com/~kernel-ppa/mainline"
 SUPPORTED_OS=("Ubuntu" "Ubuntu-Unity" "Kubuntu" "Lubuntu" "Ubuntu-Budgie" "Ubuntu-GNOME" "Ubuntu-MATE" "Xubuntu" "Mint")
 LONG_FLAGS_WITH_ARGUMENTS=("kernel" "repository" "erase" "package" "local-package" "file" "boot" "iso" "work-directory" "command" "grub" "key")
@@ -32,9 +32,9 @@ LONG_FLAGS=("${LONG_FLAGS_WITH_ARGUMENTS[@]}" "${LONG_FLAGS_WITHOUT_ARGUMENTS[@]
 NEEDS_AN_ARGUMENT=("k" "r" "e" "p" "l" "f" "b" "i" "w" "c" "g")
 DOES_NOT_NEED_AN_ARGUMENT=("${LONG_FLAGS_WITHOUT_ARGUMENTS[@]}")
 # based on /usr/share/distro-info/ubuntu.csv
-RELEASE_CODENAME=("trusty" "utopic" "vivid" "wily" "xenial" "yakkety" "zesty" "artful" "bionic" "cosmic" "disco" "eoan" "focal" "groovy" "hirsute" "impish" "jammy" "kinetic")
-RELEASE_VERSION=("14.04" "14.10" "15.04" "15.10" "16.04" "16.10" "17.04" "17.10" "18.04" "18.10" "19.04" "19.10" "20.04" "20.10" "21.04" "21.10" "22.04" "22.10")
-RELEASE_EOL=("2019-04-25" "2015-07-23" "2016-02-04" "2016-07-28" "2021-04-21" "2017-07-20" "2018-01-13" "2018-07-19" "2023-04-26" "2019-07-18" "2020-01-23" "2020-07-17" "2025-04-23" "2021-07-22" "2022-01-20" "2022-07-14" "2027-04-21" "2023-07-20")
+RELEASE_CODENAME=("trusty" "utopic" "vivid" "wily" "xenial" "yakkety" "zesty" "artful" "bionic" "cosmic" "disco" "eoan" "focal" "groovy" "hirsute" "impish" "jammy" "kinetic" "noble")
+RELEASE_VERSION=("14.04" "14.10" "15.04" "15.10" "16.04" "16.10" "17.04" "17.10" "18.04" "18.10" "19.04" "19.10" "20.04" "20.10" "21.04" "21.10" "22.04" "22.10" "24.04")
+RELEASE_EOL=("2019-04-25" "2015-07-23" "2016-02-04" "2016-07-28" "2021-04-21" "2017-07-20" "2018-01-13" "2018-07-19" "2023-04-26" "2019-07-18" "2020-01-23" "2020-07-17" "2025-04-23" "2021-07-22" "2022-01-20" "2022-07-14" "2027-04-21" "2023-07-20" "2029-05-31")
 SHELL=/bin/bash
 CWD="$(pwd)"
 WIP="${CWD}/isorespinner"
@@ -977,8 +977,9 @@ function EXTRACT_ISO_DIRECTORY_STRUCTURE {
 	if [ ${SUCCESSFULLY_MOUNTED} != 0 ]; then
 		DISPLAY_MESSAGE "Cannot mount ISO '${ISO}'."
 		FORCED_EXIT
-	# include specific exception for Ubuntu-Unity ISO
-	elif [ ! -d iso/.disk -o ! -d iso/${ISO_SQUASHFS_DIRECTORY} -o ! iso/EFI -o ! -d iso/boot/grub -o ! -d iso/dists -o ! -d iso/pool -o \( ! -d iso/preseed -a "${ISO_DISTRO}" != "Ubuntu-Unity" \) ]; then
+	# Ubuntu Unity and current Linux Mint ISOs do not necessarily include a preseed directory.
+	# The directory is created later if an installer hook is required.
+	elif [ ! -d iso/.disk -o ! -d iso/${ISO_SQUASHFS_DIRECTORY} -o ! iso/EFI -o ! -d iso/boot/grub -o ! -d iso/dists -o ! -d iso/pool -o \( ! -d iso/preseed -a "${ISO_DISTRO}" != "Ubuntu-Unity" -a "${ISO_DISTRO}" != "Mint" \) ]; then
 		DISPLAY_MESSAGE "ISO structure not compatible with an Ubuntu, Ubuntu Unity, Kubuntu, Lubuntu, Ubuntu Budgie, Ubuntu GNOME, Ubuntu MATE, Xubuntu or Linux Mint desktop ISO."
 		FORCED_EXIT
 	elif ! $(sudo grep -sqm1 amd64 iso/.disk/info); then
@@ -1014,7 +1015,7 @@ function EXTRACT_ISO_DIRECTORY_STRUCTURE {
 		FORCED_EXIT
 	fi
 	# new package requirement for respinning 20.04 ISOs and up
-	if [ "${DISTRO_RELEASE}" == "22.10" -o "${DISTRO_RELEASE}" == "22.04" -o "${DISTRO_RELEASE}" == "21.10" ]; then
+	if [ "${DISTRO_RELEASE}" == "24.04" -o "${DISTRO_RELEASE}" == "22.10" -o "${DISTRO_RELEASE}" == "22.04" -o "${DISTRO_RELEASE}" == "21.10" ]; then
 		[ ! $(sudo bash -c "command -v zstd") ] && echo "$(basename ${0}): Please ensure package 'zstd' or equivalent for your distro is installed." && FORCED_EXIT
 		CPIO_COMPRESSION="zstd"
 		UPDATE_INITRAMFS_ENVIRONMENT="CASPER_GENERATE_UUID=1"
@@ -1265,7 +1266,12 @@ function MOUNT_ISO_CHROOT {
 
 function CHECK_FOR_SYSTEMD {
 	# check iso compatibility with options which is different for 22.10 ISOs and up
- 	if ([ ${DISTRO_RELEASE} == "22.10" ] && (! sudo chroot iso-chroot dpkg -S systemd 2> /dev/null | grep -sq '/lib/systemd/systemd$')) || ([ ${DISTRO_RELEASE} != "22.10" ] && (! sudo chroot iso-chroot dpkg -S systemd 2> /dev/null | grep -sq linuxx64.efi.stub)); then
+	if [ "${DISTRO_RELEASE}" == "24.04" -o "${DISTRO_RELEASE}" == "22.10" ]; then
+		if ! sudo chroot iso-chroot dpkg -S systemd 2> /dev/null | grep -Esq '(/usr)?/lib/systemd/systemd$'; then
+			DISPLAY_MESSAGE "Respinning is only compatible with an ISO that uses 'systemd'."
+			FORCED_EXIT
+		fi
+	elif ! sudo chroot iso-chroot dpkg -S systemd 2> /dev/null | grep -sq linuxx64.efi.stub; then
 		DISPLAY_MESSAGE "Respinning is only compatible with an ISO that uses 'systemd'."
 		FORCED_EXIT
 	fi
@@ -2057,7 +2063,9 @@ script:
 		fi
 	fi
 	sudo rm -f iso-chroot/etc/default/grub.orig
-	if [ "${DISTRO_RELEASE}" == "22.10" -o "${DISTRO_RELEASE}" == "22.04" -o "${DISTRO_RELEASE}" == "21.10" -o "${DISTRO_RELEASE}" == "21.04" -o "${DISTRO_RELEASE}" == "20.10" ]; then
+	# Ubuntu uses GRUB El Torito images for current releases. Linux Mint 22
+	# retains ISOLINUX for BIOS boot, so preserve its original MBR and EFI image.
+	if [ "${ISO_DISTRO}" != "Mint" ] && [ "${DISTRO_RELEASE}" == "24.04" -o "${DISTRO_RELEASE}" == "22.10" -o "${DISTRO_RELEASE}" == "22.04" -o "${DISTRO_RELEASE}" == "21.10" -o "${DISTRO_RELEASE}" == "21.04" -o "${DISTRO_RELEASE}" == "20.10" ]; then
 		CD_BOOT_IMAGES=cd-boot-images-amd64
 		CANDIDATE_CD_BOOT_IMAGES=$(sudo chroot iso-chroot apt-cache policy ${CD_BOOT_IMAGES} | grep -m1 Candidate)
 		CANDIDATE_CD_BOOT_IMAGES=${CANDIDATE_CD_BOOT_IMAGES##  Candidate: }
@@ -2072,7 +2080,7 @@ script:
 		if [ -s cd-boot-images-amd64*.deb ]; then
 			sudo ar x cd-boot-images-amd64_*_all.deb
 			# new compression used in packaging for 21.10 and up
-			if [ "${DISTRO_RELEASE}" == "22.10" -o "${DISTRO_RELEASE}" == "22.04" -o "${DISTRO_RELEASE}" == "21.10" ]; then
+			if [ "${DISTRO_RELEASE}" == "24.04" -o "${DISTRO_RELEASE}" == "22.10" -o "${DISTRO_RELEASE}" == "22.04" -o "${DISTRO_RELEASE}" == "21.10" ]; then
 				sudo tar -I zstd -xf data.tar.zst
 			else
 				sudo tar xf data.tar.xz
@@ -2152,7 +2160,7 @@ script:
 				fi
 			fi
 			if [ -s grub-efi-ia32-bin*.deb ]; then
-				if [ "${DISTRO_RELEASE}" == "22.10" -o "${DISTRO_RELEASE}" == "22.04" -o "${DISTRO_RELEASE}" == "21.10" -o "${DISTRO_RELEASE}" == "21.04" -o "${DISTRO_RELEASE}" == "20.10" ]; then
+				if [ "${DISTRO_RELEASE}" == "24.04" -o "${DISTRO_RELEASE}" == "22.10" -o "${DISTRO_RELEASE}" == "22.04" -o "${DISTRO_RELEASE}" == "21.10" -o "${DISTRO_RELEASE}" == "21.04" -o "${DISTRO_RELEASE}" == "20.10" ]; then
 					if [ -d iso-directory-structure/pool/main ]; then
 						if [ ! -d iso-directory-structure/pool/main/g/grub2 ]; then
 							sudo mkdir -p iso-directory-structure/pool/main/g/grub2
@@ -2191,7 +2199,7 @@ script:
 		sudo cp -a ${EFI_DIRECTORY} mnt
 		sudo cp grub_bootia32.efi mnt/${EFI_DIRECTORY}/boot/bootia32.efi
 		sudo umount mnt
-		if [ "${DISTRO_RELEASE}" == "22.10" -o "${DISTRO_RELEASE}" == "22.04" -o "${DISTRO_RELEASE}" == "21.10" -o "${DISTRO_RELEASE}" == "21.04" -o "${DISTRO_RELEASE}" == "20.10" ]; then
+		if [ "${DISTRO_RELEASE}" == "24.04" -o "${DISTRO_RELEASE}" == "22.10" -o "${DISTRO_RELEASE}" == "22.04" -o "${DISTRO_RELEASE}" == "21.10" -o "${DISTRO_RELEASE}" == "21.04" -o "${DISTRO_RELEASE}" == "20.10" ]; then
 			# add preseed if missing from distro
 			sudo mkdir -p iso-directory-structure/preseed && sudo chmod 555 iso-directory-structure/preseed && sudo touch iso-directory-structure/preseed/${PRESEED_SEED} && sudo chmod 444 iso-directory-structure/preseed/${PRESEED_SEED}
 			if (sudo grep -sq '^# Linuxium' iso-directory-structure/preseed/${PRESEED_SEED}); then
@@ -2253,7 +2261,7 @@ script:
 		EFI_DIRECTORY=$(ls iso-directory-structure | grep -i "^efi$")
 		BOOT_DIRECTORY=$(ls iso-directory-structure/${EFI_DIRECTORY} | grep -i "^boot$")
 		sudo cp efi_bootia32.efi iso-directory-structure/EFI/${BOOT_DIRECTORY}/bootia32.efi
-		if [ "${DISTRO_RELEASE}" != "22.10" -a "${DISTRO_RELEASE}" != "22.04" -a "${DISTRO_RELEASE}" != "21.10" -a "${DISTRO_RELEASE}" != "21.04" -a "${DISTRO_RELEASE}" != "20.10" ]; then
+		if [ "${DISTRO_RELEASE}" != "24.04" -a "${DISTRO_RELEASE}" != "22.10" -a "${DISTRO_RELEASE}" != "22.04" -a "${DISTRO_RELEASE}" != "21.10" -a "${DISTRO_RELEASE}" != "21.04" -a "${DISTRO_RELEASE}" != "20.10" ]; then
 			sudo rm -f iso-directory-structure/boot/grub/efi.img
 			sudo cp iso.efi iso-directory-structure/boot/grub/efi.img
 			# as 20.10 and up no longer contains this grub.cfg file
@@ -2650,7 +2658,7 @@ function SPIN_ISO {
 	cd iso-directory-structure
 	sudo rm -f md5sum.txt
 	# new layout for respinning 20.04 ISOs and up
-	if [ "${DISTRO_RELEASE}" == "22.10" -o "${DISTRO_RELEASE}" == "22.04" -o "${DISTRO_RELEASE}" == "21.10" -o "${DISTRO_RELEASE}" == "21.04" -o "${DISTRO_RELEASE}" == "20.10" ]; then
+	if [ "${DISTRO_RELEASE}" == "24.04" -o "${DISTRO_RELEASE}" == "22.10" -o "${DISTRO_RELEASE}" == "22.04" -o "${DISTRO_RELEASE}" == "21.10" -o "${DISTRO_RELEASE}" == "21.04" -o "${DISTRO_RELEASE}" == "20.10" ]; then
 		echo $((sudo cpio -i; sudo cpio -i; ${CPIO_COMPRESSION} -d | sudo cpio -id conf/uuid.conf; sudo rm -r kernel; cat conf/uuid.conf; sudo rm -r conf) < ${ISO_SQUASHFS_DIRECTORY}/${ISO_INITRD} 2>/dev/null) | sudo tee .disk/casper-uuid-${KERNEL_TYPE} > /dev/null
 		find \( -path ./boot.catalog -o \
 			-path ./boot/grub/fonts -o \
@@ -2665,8 +2673,32 @@ function SPIN_ISO {
 			-path ./README.isorespinner \) -prune -o -type f -print0 | sudo xargs -0 md5sum | sudo tee md5sum.txt > /dev/null
 	fi
 	sudo rm -f ../.xorriso.log
- 	# new approach for respinning 20.10 ISOs and up
-	if [ "${DISTRO_RELEASE}" == "22.10" -o "${DISTRO_RELEASE}" == "22.04" -o "${DISTRO_RELEASE}" == "21.10" -o "${DISTRO_RELEASE}" == "21.04" -o "${DISTRO_RELEASE}" == "20.10" ]; then
+	# Linux Mint 22 uses ISOLINUX for BIOS boot together with an embedded GRUB
+	# EFI image. Keep that hybrid layout and its 16-sector partition offset.
+	if [ "${ISO_DISTRO}" == "Mint" -a "${DISTRO_RELEASE}" == "24.04" ]; then
+		sudo bash -c "xorriso -as mkisofs -J -joliet-long -l \
+			-iso-level 3 \
+			-V \"${ISO_VOLID}\" \
+			-isohybrid-mbr ../iso.mbr \
+			-partition_cyl_align off \
+			-partition_offset 16 \
+			--mbr-force-bootable \
+			-apm-block-size 2048 \
+			-iso_mbr_part_type 0x00 \
+			-c '/isolinux/boot.cat' \
+			-b '/isolinux/isolinux.bin' \
+			-no-emul-boot \
+			-boot-load-size 4 \
+			-boot-info-table \
+			-eltorito-alt-boot \
+			-e '/boot/grub/efi.img' \
+			-no-emul-boot \
+			-boot-load-size 10240 \
+			-isohybrid-gpt-basdat \
+			-isohybrid-apm-hfsplus \
+			-o ../../${LINUXIUM_ISO} . > ../.xorriso.log 2>&1"
+	# new approach for respinning Ubuntu 20.10 ISOs and up
+	elif [ "${DISTRO_RELEASE}" == "24.04" -o "${DISTRO_RELEASE}" == "22.10" -o "${DISTRO_RELEASE}" == "22.04" -o "${DISTRO_RELEASE}" == "21.10" -o "${DISTRO_RELEASE}" == "21.04" -o "${DISTRO_RELEASE}" == "20.10" ]; then
 		sudo bash -c "xorriso -as mkisofs -J -joliet-long -l \
 			-iso-level 3 \
 			-V \"${ISO_VOLID}\" \
