@@ -2671,8 +2671,31 @@ function SPIN_ISO {
 			-path ./README.isorespinner \) -prune -o -type f -print0 | sudo xargs -0 md5sum | sudo tee md5sum.txt > /dev/null
 	fi
 	sudo rm -f ../.xorriso.log
- 	# new approach for respinning 20.10 ISOs and up
-	if [ "${DISTRO_RELEASE}" == "22.10" -o "${DISTRO_RELEASE}" == "22.04" -o "${DISTRO_RELEASE}" == "21.10" -o "${DISTRO_RELEASE}" == "21.04" -o "${DISTRO_RELEASE}" == "20.10" ]; then
+	 # Mint 21.3 uses ISOLINUX for BIOS boot together with an embedded GRUB
+	 # EFI image. Keep that hybrid layout when respinning the jammy-based ISO.
+	if [ "${ISO_DISTRO}" == "Mint" -a "${DISTRO_RELEASE}" == "22.04" ]; then
+		sudo bash -c "xorriso -as mkisofs -J -joliet-long -l \
+			-iso-level 3 \
+			-V \"${ISO_VOLID}\" \
+			-isohybrid-mbr ../iso.mbr \
+			-partition_cyl_align off \
+			-partition_offset 16 \
+			--mbr-force-bootable \
+			-apm-block-size 2048 \
+			-iso_mbr_part_type 0x00 \
+			-c '/isolinux/boot.cat' \
+			-b '/isolinux/isolinux.bin' \
+			-no-emul-boot \
+			-boot-load-size 4 \
+			-boot-info-table \
+			-eltorito-alt-boot \
+			-e '/boot/grub/efi.img' \
+			-no-emul-boot \
+			-boot-load-size 10240 \
+			-isohybrid-gpt-basdat \
+			-o ../../${LINUXIUM_ISO} . > ../.xorriso.log 2>&1"
+	# new approach for respinning 20.10 ISOs and up
+	elif [ "${DISTRO_RELEASE}" == "22.10" -o "${DISTRO_RELEASE}" == "22.04" -o "${DISTRO_RELEASE}" == "21.10" -o "${DISTRO_RELEASE}" == "21.04" -o "${DISTRO_RELEASE}" == "20.10" ]; then
 		sudo bash -c "xorriso -as mkisofs -J -joliet-long -l \
 			-iso-level 3 \
 			-V \"${ISO_VOLID}\" \
