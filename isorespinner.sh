@@ -977,8 +977,9 @@ function EXTRACT_ISO_DIRECTORY_STRUCTURE {
 	if [ ${SUCCESSFULLY_MOUNTED} != 0 ]; then
 		DISPLAY_MESSAGE "Cannot mount ISO '${ISO}'."
 		FORCED_EXIT
-	# include specific exception for Ubuntu-Unity ISO
-	elif [ ! -d iso/.disk -o ! -d iso/${ISO_SQUASHFS_DIRECTORY} -o ! iso/EFI -o ! -d iso/boot/grub -o ! -d iso/dists -o ! -d iso/pool -o \( ! -d iso/preseed -a "${ISO_DISTRO}" != "Ubuntu-Unity" \) ]; then
+	# Ubuntu Unity and Linux Mint ISOs do not necessarily include a preseed directory.
+	# The directory is created later if an installer hook is required.
+	elif [ ! -d iso/.disk -o ! -d iso/${ISO_SQUASHFS_DIRECTORY} -o ! iso/EFI -o ! -d iso/boot/grub -o ! -d iso/dists -o ! -d iso/pool -o \( ! -d iso/preseed -a "${ISO_DISTRO}" != "Ubuntu-Unity" -a "${ISO_DISTRO}" != "Mint" \) ]; then
 		DISPLAY_MESSAGE "ISO structure not compatible with an Ubuntu, Ubuntu Unity, Kubuntu, Lubuntu, Ubuntu Budgie, Ubuntu GNOME, Ubuntu MATE, Xubuntu or Linux Mint desktop ISO."
 		FORCED_EXIT
 	elif ! $(sudo grep -sqm1 amd64 iso/.disk/info); then
@@ -2108,7 +2109,9 @@ script:
 			fi
 		fi
 	fi
-	if ${GRUB_32}; then
+	# Mint already ships a compact 32-bit UEFI bootloader. Rebuilding it can
+	# produce a much larger image and trigger memory errors on Atom tablets.
+	if ${GRUB_32} && [ "${ISO_DISTRO}" != "Mint" ]; then
 		if [ ! -f iso-directory-structure/dists/${DISTRO_CODENAME}/main/binary-amd64/${DISTRO_PACKAGES} ]; then
 			DISPLAY_MESSAGE "Cannot add 32-bit GRUB packages."
 			FORCED_EXIT
@@ -2260,6 +2263,9 @@ script:
 			sudo cp iso-directory-structure/boot/grub/x86_64-efi/grub.cfg iso-directory-structure/boot/grub/i386-efi
 		fi
 		echo "32-bit GRUB bootloader added ..." >> ${ISORESPINNER_LOGFILE}
+	elif ${GRUB_32} && [ "${ISO_DISTRO}" == "Mint" ]; then
+		DISPLAY_WARNING "Mint ISO already contains a compact 32-bit UEFI bootloader; preserving the original bootia32.efi."
+		echo "Original Mint 32-bit UEFI bootloader preserved ..." >> ${ISORESPINNER_LOGFILE}
 	fi
 }
 
