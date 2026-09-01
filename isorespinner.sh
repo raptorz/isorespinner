@@ -2116,7 +2116,10 @@ script:
 			fi
 		fi
 	fi
-	if ${GRUB_32}; then
+	# Mint 22.x already ships a working, compact bootia32.efi. Rebuilding it
+	# with the Noble GRUB packages produces a much larger image which can
+	# trigger "out of memory" in 32-bit UEFI firmware on Atom tablets.
+	if ${GRUB_32} && [ "${ISO_DISTRO}" != "Mint" ]; then
 		if [ ! -f iso-directory-structure/dists/${DISTRO_CODENAME}/main/binary-amd64/${DISTRO_PACKAGES} ]; then
 			DISPLAY_MESSAGE "Cannot add 32-bit GRUB packages."
 			FORCED_EXIT
@@ -2268,6 +2271,9 @@ script:
 			sudo cp iso-directory-structure/boot/grub/x86_64-efi/grub.cfg iso-directory-structure/boot/grub/i386-efi
 		fi
 		echo "32-bit GRUB bootloader added ..." >> ${ISORESPINNER_LOGFILE}
+	elif ${GRUB_32} && [ "${ISO_DISTRO}" == "Mint" ]; then
+		DISPLAY_WARNING "Mint ISO already contains a compact 32-bit UEFI bootloader; preserving the original bootia32.efi."
+		echo "Original Mint 32-bit UEFI bootloader preserved ..." >> ${ISORESPINNER_LOGFILE}
 	fi
 }
 
