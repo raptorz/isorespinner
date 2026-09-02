@@ -2109,9 +2109,12 @@ script:
 			fi
 		fi
 	fi
-	# Mint already ships a compact 32-bit UEFI bootloader. Rebuilding it can
-	# produce a much larger image and trigger memory errors on Atom tablets.
-	if ${GRUB_32} && [ "${ISO_DISTRO}" != "Mint" ]; then
+	# Mint already ships a compact 32-bit UEFI bootloader. Keep a copy while
+	# still adding the IA32 GRUB packages and installer hook for the target disk.
+	if ${GRUB_32} && [ "${ISO_DISTRO}" == "Mint" ]; then
+		sudo cp iso-directory-structure/EFI/boot/bootia32.efi mint_bootia32.efi
+	fi
+	if ${GRUB_32}; then
 		if [ ! -f iso-directory-structure/dists/${DISTRO_CODENAME}/main/binary-amd64/${DISTRO_PACKAGES} ]; then
 			DISPLAY_MESSAGE "Cannot add 32-bit GRUB packages."
 			FORCED_EXIT
@@ -2193,6 +2196,9 @@ script:
 		sudo mount iso.efi mnt
 		sudo cp -a ${EFI_DIRECTORY} mnt
 		sudo cp grub_bootia32.efi mnt/${EFI_DIRECTORY}/boot/bootia32.efi
+		if [ "${ISO_DISTRO}" == "Mint" ] && [ -f mint_bootia32.efi ]; then
+			sudo cp mint_bootia32.efi mnt/${EFI_DIRECTORY}/boot/bootia32.efi
+		fi
 		sudo umount mnt
 		if [ "${DISTRO_RELEASE}" == "22.10" -o "${DISTRO_RELEASE}" == "22.04" -o "${DISTRO_RELEASE}" == "21.10" -o "${DISTRO_RELEASE}" == "21.04" -o "${DISTRO_RELEASE}" == "20.10" ]; then
 			# add preseed if missing from distro
@@ -2256,6 +2262,9 @@ script:
 		EFI_DIRECTORY=$(ls iso-directory-structure | grep -i "^efi$")
 		BOOT_DIRECTORY=$(ls iso-directory-structure/${EFI_DIRECTORY} | grep -i "^boot$")
 		sudo cp efi_bootia32.efi iso-directory-structure/EFI/${BOOT_DIRECTORY}/bootia32.efi
+		if [ "${ISO_DISTRO}" == "Mint" ] && [ -f mint_bootia32.efi ]; then
+			sudo cp mint_bootia32.efi iso-directory-structure/EFI/${BOOT_DIRECTORY}/bootia32.efi
+		fi
 		if [ "${DISTRO_RELEASE}" != "22.10" -a "${DISTRO_RELEASE}" != "22.04" -a "${DISTRO_RELEASE}" != "21.10" -a "${DISTRO_RELEASE}" != "21.04" -a "${DISTRO_RELEASE}" != "20.10" ]; then
 			sudo rm -f iso-directory-structure/boot/grub/efi.img
 			sudo cp iso.efi iso-directory-structure/boot/grub/efi.img
@@ -2263,10 +2272,12 @@ script:
 			sudo cp iso-directory-structure/boot/grub/x86_64-efi/grub.cfg iso-directory-structure/boot/grub/i386-efi
 		fi
 		echo "32-bit GRUB bootloader added ..." >> ${ISORESPINNER_LOGFILE}
-	elif ${GRUB_32} && [ "${ISO_DISTRO}" == "Mint" ]; then
-		DISPLAY_WARNING "Mint ISO already contains a compact 32-bit UEFI bootloader; preserving the original bootia32.efi."
-		echo "Original Mint 32-bit UEFI bootloader preserved ..." >> ${ISORESPINNER_LOGFILE}
+		if [ "${ISO_DISTRO}" == "Mint" ] && [ -f mint_bootia32.efi ]; then
+			DISPLAY_WARNING "Mint ISO already contains a compact 32-bit UEFI bootloader; preserving the original bootia32.efi."
+			echo "Original Mint 32-bit UEFI bootloader preserved ..." >> ${ISORESPINNER_LOGFILE}
+		fi
 	fi
+	sudo rm -f mint_bootia32.efi
 }
 
 function UPDATE_GRUB_PACKAGES {
