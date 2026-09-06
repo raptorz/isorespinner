@@ -2231,7 +2231,8 @@ script:
 # if chroot \${TARGET} apt -y install --allow-remove-essential /usr/src/grub-efi-ia32.deb /usr/src/grub-efi-ia32-bin.deb > \${TARGET}/usr/src/.package.log 2>&1; then \\
 # INSTALL_DEVICE=/dev/\$(lsblk -no pkname \$(mount | grep \${TARGET}/boot/efi | awk '{print \$1}')); \\
 # echo "$(basename ${0}): Running chroot \${TARGET} grub-install --force --target=i386-efi \\"\${INSTALL_DEVICE}\\""; \\
-# chroot \${TARGET} grub-install --force --target=i386-efi \${INSTALL_DEVICE}; \\
+# chroot \${TARGET} grub-install --force --target=i386-efi --efi-directory=/boot/efi --bootloader-id=ubuntu --recheck --no-nvram; \\
+# chroot \${TARGET} grub-mkconfig -o /boot/grub/grub.cfg; \\
 # else echo "$(basename ${0}): Failed to install:"; cat \${TARGET}/usr/src/.package.log; fi; \\
 # rm -f \${TARGET}/usr/src/.package.log \${TARGET}/usr/src/grub-efi-ia32.deb \${TARGET}/usr/src/grub-efi-ia32-bin.deb; \\
 # umount -f \${TARGET}/sys/firmware/efi/efivars; \\
