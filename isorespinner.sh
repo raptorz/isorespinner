@@ -2228,10 +2228,11 @@ script:
 # chroot \${TARGET} apt -y purge --allow-remove-essential \${PACKAGE} > /dev/null 2>&1; done; \\
 # for PACKAGE in \$(dpkg -l grub-efi-amd64* 2> /dev/null | grep '^ii' | awk '{print \$2}'); do \\
 # chroot \${TARGET} apt -y purge --allow-remove-essential \${PACKAGE} > /dev/null 2>&1; done; \\
-# if chroot \${TARGET} apt -y install --allow-remove-essential /usr/src/grub-efi-ia32.deb /usr/src/grub-efi-ia32-bin.deb > \${TARGET}/usr/src/.package.log 2>&1; then \\
+# if chroot \${TARGET} apt-get -y --no-download --allow-change-held-packages --allow-remove-essential install /usr/src/grub-efi-ia32.deb /usr/src/grub-efi-ia32-bin.deb > \${TARGET}/usr/src/.package.log 2>&1; then \\
 # INSTALL_DEVICE=/dev/\$(lsblk -no pkname \$(mount | grep \${TARGET}/boot/efi | awk '{print \$1}')); \\
 # echo "$(basename ${0}): Running chroot \${TARGET} grub-install --force --target=i386-efi \\"\${INSTALL_DEVICE}\\""; \\
-# chroot \${TARGET} grub-install --force --target=i386-efi --efi-directory=/boot/efi --bootloader-id=ubuntu --recheck --no-nvram; \\
+# chroot \${TARGET} grub-install --force --target=i386-efi --efi-directory=/boot/efi --bootloader-id=ubuntu --removable --recheck --no-nvram; \\
+# mkdir -p \${TARGET}/boot/efi/EFI/ubuntu; cp -f \${TARGET}/boot/efi/EFI/BOOT/bootia32.efi \${TARGET}/boot/efi/EFI/ubuntu/bootia32.efi; \\
 # chroot \${TARGET} grub-mkconfig -o /boot/grub/grub.cfg; \\
 # else echo "$(basename ${0}): Failed to install:"; cat \${TARGET}/usr/src/.package.log; fi; \\
 # rm -f \${TARGET}/usr/src/.package.log \${TARGET}/usr/src/grub-efi-ia32.deb \${TARGET}/usr/src/grub-efi-ia32-bin.deb; \\
