@@ -1,0 +1,50 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Installed-system helper, called by the local package's dpkg/kernel hooks.
+set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C
+unset LD_LIBRARY_PATH LD_PRELOAD PYTHONPATH APT_CONFIG
+marker=/var/lib/isorespin/ia32-installed
+initial=false
+if [[ $# == 1 && $1 == --initial ]]; then
+    initial=true
+elif [[ $# != 0 ]]; then
+    echo 'usage: refresh-ia32 [--initial]' >&2
+    exit 1
+fi
+# Installing the package must not touch any disk before the installer is ready.
+if ! $initial && [[ ! -f $marker ]]; then
+    exit 0
+fi
+[[ $EUID == 0 ]] || { echo 'isorespin: root is required' >&2; exit 1; }
+[[ -r /sys/firmware/efi/fw_platform_size && $(</sys/firmware/efi/fw_platform_size) == 32 ]] || {
+    echo 'isorespin: IA32 firmware is required to refresh this bootloader' >&2
+    exit 1
+}
+mountpoint -q /boot/efi && [[ $(findmnt -n -o FSTYPE --target /boot/efi) == vfat ]] || {
+    echo 'isorespin: mount the installed ESP at /boot/efi before updating GRUB' >&2
+    exit 1
+}
+[[ -s /usr/lib/grub/i386-efi/normal.mod ]] || { echo 'isorespin: IA32 modules missing' >&2; exit 1; }
+
+# Probe only this installed system, never embed build-host disk identifiers.
+grub-install --target=i386-efi --efi-directory=/boot/efi --bootloader-id=ubuntu --no-nvram --recheck
+grub-install --target=i386-efi --efi-directory=/boot/efi --removable --no-nvram --recheck
+update-grub
+[[ -s /boot/grub/i386-efi/normal.mod && -s /boot/grub/grub.cfg ]] || {
+    echo 'isorespin: installed GRUB is incomplete' >&2
+    exit 1
+}
+efi=/boot/efi/EFI/BOOT/BOOTIA32.EFI
+[[ -s $efi ]] || { echo 'isorespin: removable fallback is missing' >&2; exit 1; }
+pe_offset=$(od -An -tu4 -j60 -N4 "$efi" | tr -d ' ')
+[[ $pe_offset =~ ^[0-9]+$ ]] || { echo 'isorespin: invalid EFI image' >&2; exit 1; }
+machine=$(od -An -tx2 -j"$((pe_offset+4))" -N2 "$efi" | tr -d ' ')
+[[ $machine == 014c ]] || { echo 'isorespin: fallback is not IA32' >&2; exit 1; }
+mkdir -p /var/lib/isorespin
+touch "$marker"
+
+# Only initial installation tries NVRAM; updates preserve the working entry.
+if $initial && ! grub-install --target=i386-efi --efi-directory=/boot/efi --bootloader-id=ubuntu --recheck; then
+    echo 'WARNING: could not register an EFI boot variable; using EFI/BOOT/BOOTIA32.EFI.'
+fi

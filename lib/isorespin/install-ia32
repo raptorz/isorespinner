@@ -1,0 +1,77 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Runs on the LIVE system, at the installer's bootloader stage, never at build time.
+set -euo pipefail
+export LC_ALL=C DEBIAN_FRONTEND=noninteractive
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+# A classic installer snap may export its own Python/library/APT environment.
+# The installed system must use its own binaries and configuration instead.
+unset LD_LIBRARY_PATH LD_PRELOAD PYTHONPATH APT_CONFIG
+
+die() { echo "isorespin IA32: $*" >&2; exit 1; }
+[[ ${EUID} == 0 ]] || die "root is required"
+[[ $# == 2 && ($1 == prepare || $1 == install) ]] || die "usage: install-ia32 prepare|install TARGET"
+[[ -r /sys/firmware/efi/fw_platform_size ]] || die "not booted via UEFI"
+[[ $(</sys/firmware/efi/fw_platform_size) == 32 ]] || die "not booted via IA32 UEFI"
+action=$1
+target=$(realpath -e -- "$2")
+[[ $target != / && $target != /boot && $target != /boot/efi ]] || die "unsafe target"
+mountpoint -q -- "$target" || die "target is not a mounted filesystem: $target"
+[[ -f $target/etc/os-release && -f $target/var/lib/dpkg/status ]] || die "target is not an installed Debian-family system"
+[[ $(realpath -e -- "$target/boot/efi") == "$target/boot/efi" ]] || die "ESP path must not escape through a symlink"
+mountpoint -q -- "$target/boot/efi" || die "the installer must mount the target ESP at TARGET/boot/efi"
+[[ $(findmnt -n -o FSTYPE --target "$target/boot/efi") == vfat ]] || die "ESP is not FAT"
+
+mkdir -p "$target/var/log/installer"
+exec > >(tee -a "$target/var/log/installer/isorespin-ia32.log") 2>&1
+echo "isorespin: $action IA32 GRUB in $target"
+
+# Bind only absent mounts, and undo only mounts owned by this invocation.
+owned_mounts=()
+cleanup() {
+    local i
+    for ((i=${#owned_mounts[@]}-1; i>=0; i--)); do
+        umount -R -- "${owned_mounts[i]}" || true
+    done
+}
+trap cleanup EXIT
+for tree in dev proc sys; do
+    mkdir -p "$target/$tree"
+    [[ $(realpath -e -- "$target/$tree") == "$target/$tree" ]] || die "unsafe target mount path: $tree"
+    if ! mountpoint -q -- "$target/$tree"; then
+        mount --rbind "/$tree" "$target/$tree"
+        owned_mounts+=("$target/$tree")
+        mount --make-rslave "$target/$tree"
+    fi
+done
+
+repo=$target/var/lib/isorespin/apt
+if [[ ! -f $repo/Packages ]]; then
+    [[ -f /cdrom/isorespin/apt/Packages ]] || die "offline IA32 repository is missing from /cdrom"
+    (cd /cdrom/isorespin/apt && sha256sum --strict -c SHA256SUMS)
+    mkdir -p "$repo"
+    cp -a /cdrom/isorespin/apt/. "$repo/"
+fi
+mkdir -p "$target/etc/apt/sources.list.d"
+source_file=/etc/apt/sources.list.d/isorespin-ia32.list
+printf '%s\n' 'deb [trusted=yes] file:/var/lib/isorespin/apt ./' > "$target$source_file"
+# Trust is restricted to our checksummed local repository, not the distro's sources.
+apt_options=(-o "Dir::Etc::sourcelist=$source_file" -o Dir::Etc::sourceparts=-
+             -o Acquire::Languages=none -o APT::Get::List-Cleanup=0)
+chroot "$target" apt-get "${apt_options[@]}" update
+
+if [[ $action == prepare ]]; then
+    exit
+fi
+
+# Keep distro shim/signed GRUB and the installer intact. The local maintenance
+# package depends on co-installable IA32 modules, not the conflicting active-
+# loader metapackage, and refreshes EFI files on subsequent GRUB/kernel updates.
+chroot "$target" apt-get "${apt_options[@]}" --no-install-recommends --no-remove -y install isorespin-ia32
+audit=$(chroot "$target" dpkg --audit)
+[[ -z $audit ]] || die "target package database is not configured: $audit"
+[[ -s $target/usr/lib/grub/i386-efi/normal.mod ]] || die "IA32 modules were not installed"
+
+chroot "$target" /usr/lib/isorespin/refresh-ia32 --initial
+rm -f -- "$target$source_file"
+echo 'isorespin: IA32 bootloader installation completed.'

@@ -1,4 +1,9 @@
 # isorespinner
+
+旧版 `isorespin.sh` 的 IA32 UEFI 适配、适用镜像、使用方法及验证状态见
+[isorespin 文档](docs/isorespin.md)。`--atom` 旧驱动注入已移除；
+Mint 20.3 保留原流程，Mint 22.3 和 Ubuntu/Xubuntu 26.04 使用独立的新适配模块。
+
 Linuxium's script to respin an Ubuntu* desktop ISO and optionally add/remove functionality like kernels/repositories/packages/files/boot parameters etc., run pre and post commands and add support for a 32-bit bootloader. Copyright (C) 2022 Ian W. Morrison (linuxium@linuxium.com.au)
 
 

@@ -11,7 +11,7 @@
 #	Version 8.7.0: This work is licensed under GNU GPL version 3.
 #	
 #	Linuxium's script to respin an Ubuntu (or Ubuntu flavour), Linux Mint, neon, BackBox or Peppermint desktop ISO and optionally add/remove functionality like
-#	kernels/repositories/packages/files/boot parameters etc., run pre and post commands, output files and directories, include bootloader/bootmanager support for Intel Atom/Apollo
+#	kernels/repositories/packages/files/boot parameters etc., run pre and post commands, output files and directories, include bootloader/bootmanager support for Intel Apollo
 #	devices and add support for 32-bit bootloaders together with template configuration files.
 #	Copyright (C) 2021 Ian W. Morrison (linuxium@linuxium.com.au).
 #	
@@ -35,7 +35,7 @@ SUPPORTED_OS=("Ubuntu" "Kubuntu" "Lubuntu" "Lubuntu-Next" "Ubuntu-Budgie" "Ubunt
 LONG_FLAGS_WITH_ARGUMENTS=("kernel" "repository" "erase" "package" "local-package" "download" "file" "boot" "storage" "iso" "work-directory" "command" "output" "grub" "key" "template")
 LONG_FLAGS_WITHOUT_ARGUMENTS=("help" "version" "check" "update" "dist-upgrade" "upgrade" "interactive" "debug")
 SERVER_FLAG=("server")
-PROCESSOR_FLAGS=("apollo" "atom")
+PROCESSOR_FLAGS=("apollo")
 ROLLING_FLAGS=("rolling-release" "rolling-release-hwe" "rolling-release-hwe-edge" "rolling-proposed" "rolling-proposed-hwe" "rolling-proposed-hwe-edge" "rolling-testing" "rolling-testing-hwe" "rolling-testing-hwe-edge" "rolling-unstable" "rolling-unstable-hwe" "rolling-unstable-hwe-edge")
 ROLLING_LIST=("rolling-list")
 LONG_FLAGS=("${LONG_FLAGS_WITH_ARGUMENTS[@]}" "${LONG_FLAGS_WITHOUT_ARGUMENTS[@]}" "${SERVER_FLAG[@]}" "${PROCESSOR_FLAGS[@]}" "${ROLLING_FLAGS[@]}" "${ROLLING_LIST[@]}")
@@ -185,7 +185,10 @@ function USAGE {
 	echo "       $(basename ${0}) ... --rolling-testing | --rolling-testing-hwe | --rolling-testing-hwe-edge | --rolling-unstable | --rolling-unstable-hwe | --rolling-unstable-hwe-edge ] | ..."
 	echo "       $(basename ${0}) ... -b [ GRUB | GRUB-32 | GRUB-64 | rEFInd | Linuxium ] | -g [ \"\" | \"<kernel boot parameter> ... \" ] | -s [ <size>MB | <size>GB ] | -w <directory> | ..."
 	echo "       $(basename ${0}) ... --key \"<repo> ... \" | -r \"<repo> ... \" | -p \"<pkg> ... \" | -l \"<pkg.deb> ... \" | -e \"<pkg> ... \" | -d \"<pkg> ... \" | -f [ \"<file> | <directory> ... \" ] | ..."
-	echo "       $(basename ${0}) ... -c \"<cmd> ... \" | -o [ \"<file> | <directory> ... \" ] | -t <template configuration file> | --apollo | --atom | --server | --interactive | --debug ]"
+	echo "       $(basename ${0}) ... -c \"<cmd> ... \" | -o [ \"<file> | <directory> ... \" ] | -t <template configuration file> | --apollo | --server | --interactive | --debug ]"
+	echo "Modern images: -i <ISO> [-w <directory>] [--inspect] [--keep-work]"
+	echo "              Mint 22.3 Cinnamon/Xfce; Ubuntu/Xubuntu 26.04 desktop. See docs/isorespin.md."
+	echo "Mint 20.3 retains the legacy build path. --atom driver injection has been removed."
 }
 
 function USE_GUI_TO_GENERATE_CMDLINE {
@@ -195,7 +198,7 @@ function USE_GUI_TO_GENERATE_CMDLINE {
 		OPTIONS=$(zenity --list --title="isorespin.sh (version ${VERSION})" --text "Select option" --height=340 --width=600 --checklist --hide-header \
 			--column ""	--column "" \
 			TRUE		"ISO" \
-			FALSE		"Add frequently used options for Intel Atom (Bay Trail/Cherry Trail) or Intel Apollo processors" \
+			FALSE		"Add frequently used options for Intel Apollo processors" \
 			FALSE		"Upgrade kernel" \
 			FALSE		"Add repositories" \
 			FALSE		"Include packages" \
@@ -223,13 +226,8 @@ function USE_GUI_TO_GENERATE_CMDLINE {
 					fi
 					CMDLINE+=" -i ${ISO}"
 					;;
-				"Add frequently used options for Intel Atom (Bay Trail/Cherry Trail) or Intel Apollo processors")
-					PROCESSOR=$(zenity --list --title="isorespin.sh" --text "Make a selection" --height=160 --width=550 --radiolist --column "" --column "" --hide-header TRUE "Add frequently used options for an Intel Atom (Bay Trail or Cherry Trail) processor" FALSE "Add frequently used options for an Intel Apollo processor" 2> /dev/null)
-					if [ "${PROCESSOR}" == "Add frequently used options for an Intel Atom (Bay Trail or Cherry Trail) processor" ]; then
-						CMDLINE+=" --atom"
-					else
-						CMDLINE+=" --apollo"
-					fi
+				"Add frequently used options for Intel Apollo processors")
+					CMDLINE+=" --apollo"
 					;;
 				"Upgrade kernel")
 					CHOICE=$(zenity --list --title="isorespin.sh" --text "Make a selection" --radiolist --column "" --column "" --hide-header TRUE "Upgrade kernel to latest available version" FALSE "Upgrade kernel to a specific version" FALSE "Upgrade to a rolling kernel" 2> /dev/null)
@@ -695,7 +693,7 @@ function CHECK_CMDLINE {
 					FLAG_FOUND=false
 					ARGUMENT_FOUND=true
 					;;
-				"a")	# aTOM or aPOLLO
+				"a")	# aPOLLO
 					TARGET_PROCESSOR=${OPTION:2}
 					TARGET_PROCESSOR=${TARGET_PROCESSOR,,}
 					OPTION_TARGET_PROCESSOR
@@ -994,9 +992,6 @@ function PROCESS_CMDLINE {
 	if ${ADD_PERSISTENCE}; then
 		LINUXIUM_ISO="${LINUXIUM_ISO/linuxium/linuxium-persistence}"
 		LINUXIUM_ISO="${LINUXIUM_ISO/rEFInd-/}"
-	fi
-	if [ "${TARGET_PROCESSOR}" == "atom" ]; then
-		LINUXIUM_ISO="${LINUXIUM_ISO/linuxium/linuxium-atom}"
 	fi
 	if [ "${TARGET_PROCESSOR}" == "apollo" ]; then
 		LINUXIUM_ISO="${LINUXIUM_ISO/linuxium/linuxium-apollo}"
@@ -1856,8 +1851,8 @@ function SERVER_POSTPROCESSING {
 }
 
 function OPTION_TARGET_PROCESSOR {
-	if [ "${TARGET_PROCESSOR}" != "atom" -a "${TARGET_PROCESSOR}" != "apollo" ]; then
-		DISPLAY_MESSAGE "Only 'atom' or 'apollo' can be specified as a target processor."
+	if [ "${TARGET_PROCESSOR}" != "apollo" ]; then
+		DISPLAY_MESSAGE "Only 'apollo' can be specified as a target processor; --atom has been removed."
 		DIRTY_EXIT
 	fi
 	if ${TARGET_PROCESSOR_OPTION}; then
@@ -1952,133 +1947,6 @@ function PROCESS_TARGET_PROCESSOR_OPTION {
 				FULLNAME_ADDITIONAL_FILES[${FILE_ARRAY}]="$(readlink -f ${APOLLO_ADDITIONAL_FILE}) "
 				((FILE_ARRAY++))
 				ADD_FILE=true
-			fi
-		done
-	fi
-	# atom: -l rtl8723bX_4.12.0_amd64.deb -f linuxium-install-UCM-files.sh -f wrapper-linuxium-install-UCM-files.sh -f linuxium-install-broadcom-drivers.sh -f wrapper-linuxium-install-broadcom-drivers.sh -c wrapper-linuxium-install-UCM-files.sh -c wrapper-linuxium-install-broadcom-drivers.sh
-	if [ "${TARGET_PROCESSOR}" == "atom" ]; then
-		# backward compatibility
-		[ ! $(sudo bash -c "command -v 7z") ] && echo "$(basename ${0}): Please ensure package 'p7zip-full' or equivalent for your distro is installed." && MESSY_EXIT
-		LINUX_FIRMEWARE_VERSION=$(7z x -so ${ISO} ${ISO_SQUASHFS_DIRECTORY}/filesystem.${FILESYSTEM_FILES} 2> /dev/null | grep linux-firmware | sed 's/.*[[:space:]]//')
-		while [[ ${LINUX_FIRMEWARE_VERSION} =~ .*\..*\..* ]]
-		do
-			LINUX_FIRMEWARE_VERSION=${LINUX_FIRMEWARE_VERSION%\.*}
-		done
-		if (( $(echo "${LINUX_FIRMEWARE_VERSION:-0} >= 1.169" | bc -l) )); then
-			ATOM_WIFI_PACKAGE=rtl8723bt_4.12.0_amd64.deb
-		else
-			ATOM_WIFI_PACKAGE=rtl8723bs_4.12.0_amd64.deb
-		fi
-		ATOM_WIFI_PACKAGE_FOUND=false
-		if ${ADD_LOCAL_PACKAGE}; then
-			for LOCAL_PACKAGE_ARRAY in $(seq 0 $((${#LOCAL_PACKAGES[@]}-1)))
-			do
-				for PACKAGE in ${LOCAL_PACKAGES[${LOCAL_PACKAGE_ARRAY}]}
-				do
-					if [ "$(basename ${PACKAGE})" == "rtl8723bs_4.12.0_amd64.deb" ]; then
-						if (( $(echo "${LINUX_FIRMEWARE_VERSION:-0} >= 1.169" | bc -l) )); then
-							DISPLAY_MESSAGE "Local package '${PACKAGE}' is not compatible with version of installed 'linux-firmware' package."
-							MESSY_EXIT
-						fi
-						ATOM_WIFI_PACKAGE_FOUND=true
-						break 2
-					elif [ "$(basename ${PACKAGE})" == "rtl8723bt_4.12.0_amd64.deb" ]; then
-						if (( $(echo "${LINUX_FIRMEWARE_VERSION:-0} < 1.169" | bc -l) )); then
-							DISPLAY_MESSAGE "Local package '${PACKAGE}' is not compatible with version of installed 'linux-firmware' package."
-							MESSY_EXIT
-						fi
-						ATOM_WIFI_PACKAGE_FOUND=true
-						break 2
-					fi
-				done
-			done
-		fi
-		if ! ${ATOM_WIFI_PACKAGE_FOUND}; then
-			case ${ATOM_WIFI_PACKAGE} in
-				"rtl8723bs_4.12.0_amd64.deb")
-					DOWNLOAD_FILE http://url.linuxium.com.au/rtl8723bs_4_12_0_amd64_deb ${ATOM_WIFI_PACKAGE}
-					;;
-				"rtl8723bt_4.12.0_amd64.deb")
-					DOWNLOAD_FILE http://url.linuxium.com.au/rtl8723bt_4_12_0_amd64_deb ${ATOM_WIFI_PACKAGE}
-					;;
-			esac
-			if [ ! -f ${ATOM_WIFI_PACKAGE} ]; then
-				DISPLAY_MESSAGE "Cannot fetch '${ATOM_WIFI_PACKAGE}' ... check your internet connection and try again."
-				MESSY_EXIT
-			fi
-			LOCAL_PACKAGE_ARRAY=${#LOCAL_PACKAGES[@]}
-			FULLNAME_LOCAL_PACKAGES[${LOCAL_PACKAGE_ARRAY}]+="$(readlink -f ${ATOM_WIFI_PACKAGE})"
-			BASENAME_LOCAL_PACKAGES[${LOCAL_PACKAGE_ARRAY}]+="$(basename $(readlink -f ${ATOM_WIFI_PACKAGE}))"
-			((LOCAL_PACKAGE_ARRAY++))
-			ADD_LOCAL_PACKAGE=true
-		fi
-		for ATOM_ADDITIONAL_FILE in linuxium-install-UCM-files.sh wrapper-linuxium-install-UCM-files.sh linuxium-install-broadcom-drivers.sh wrapper-linuxium-install-broadcom-drivers.sh
-		do
-			ATOM_ADDITIONAL_FILE_FOUND=false
-			if ${ADD_FILE}; then
-				for FILE_ARRAY in $(seq 0 $((${#FULLNAME_ADDITIONAL_FILES[@]}-1)))
-				do
-					for ADDITIONAL_FILE in ${FULLNAME_ADDITIONAL_FILES[${FILE_ARRAY}]}
-					do
-						if [ "$(basename ${ADDITIONAL_FILE})" == "${ATOM_ADDITIONAL_FILE}" ]; then
-							ATOM_ADDITIONAL_FILE_FOUND=true
-							break 2
-						fi
-					done
-				done
-			fi
-			if ! ${ATOM_ADDITIONAL_FILE_FOUND}; then
-				case ${ATOM_ADDITIONAL_FILE} in
-					"linuxium-install-UCM-files.sh")
-						# kludge for 20.04 and up: actually use linuxium-install-UCM2-files.sh but renamed as linuxium-install-UCM-files.sh
-						if [ "${DISTRO_RELEASE}" == "21.10" -o "${DISTRO_RELEASE}" == "21.04" -o "${DISTRO_RELEASE}" == "20.10" -o "${DISTRO_RELEASE}" == "20.04" ]; then
-							DOWNLOAD_FILE http://url.linuxium.com.au/linuxium-install-UCM2-files_sh linuxium-install-UCM2-files.sh
-							sudo mv linuxium-install-UCM2-files.sh ${ATOM_ADDITIONAL_FILE}
-						else
-							DOWNLOAD_FILE http://url.linuxium.com.au/linuxium-install-UCM-files_sh ${ATOM_ADDITIONAL_FILE}
-						fi
-						;;
-					"wrapper-linuxium-install-UCM-files.sh")
-						DOWNLOAD_FILE http://url.linuxium.com.au/wrapper-linuxium-install-UCM-files_sh ${ATOM_ADDITIONAL_FILE}
-						;;
-					"linuxium-install-broadcom-drivers.sh")
-						DOWNLOAD_FILE http://url.linuxium.com.au/linuxium-install-broadcom-drivers_sh ${ATOM_ADDITIONAL_FILE}
-						;;
-					"wrapper-linuxium-install-broadcom-drivers.sh")
-						DOWNLOAD_FILE http://url.linuxium.com.au/wrapper-linuxium-install-broadcom-drivers_sh ${ATOM_ADDITIONAL_FILE}
-						;;
-				esac
-				if [ ! -f ${ATOM_ADDITIONAL_FILE} ]; then
-					DISPLAY_MESSAGE "Cannot fetch '${ATOM_ADDITIONAL_FILE}' ... check your internet connection and try again."
-					MESSY_EXIT
-				fi
-				sudo chmod +x ${ATOM_ADDITIONAL_FILE}
-				FILE_ARRAY=${#FULLNAME_ADDITIONAL_FILES[@]}
-				FULLNAME_ADDITIONAL_FILES[${FILE_ARRAY}]="$(readlink -f ${ATOM_ADDITIONAL_FILE}) "
-				((FILE_ARRAY++))
-				ADD_FILE=true
-			fi
-		done
-		for ATOM_COMMAND in wrapper-linuxium-install-UCM-files.sh wrapper-linuxium-install-broadcom-drivers.sh
-		do
-			ATOM_COMMAND_FOUND=false
-			if ${ADD_COMMAND}; then
-				for COMMAND_ARRAY in $(seq 0 $((${#COMMANDS[@]}-1)))
-				do
-					for COMMAND in "${COMMANDS[${COMMAND_ARRAY}]}"
-					do
-						if [ "${COMMAND}" == "${ATOM_COMMAND}" ]; then
-							ATOM_COMMAND_FOUND=true
-							break 2
-						fi
-					done
-				done
-			fi
-			if ! ${ATOM_COMMAND_FOUND}; then
-				COMMAND_ARRAY=${#COMMANDS[@]}
-				COMMANDS[${COMMAND_ARRAY}]="${ATOM_COMMAND}"
-				((COMMAND_ARRAY++))
-				ADD_COMMAND=true
 			fi
 		done
 	fi
@@ -2269,8 +2137,12 @@ function EXTRACT_ISO {
 	CODENAME_TO_RELEASE ${DISTRO_CODENAME} # returns DISTRO_RELEASE
 	if GET_RELEASE_EOL ${DISTRO_RELEASE}; then
 		if [[ $((($(date -d "${DISTRO_EOL}" +%s)-$(date +%s))/60/60/24)) -lt 0 ]]; then
-			DISPLAY_MESSAGE "ISO is EOL."
-			MESSY_EXIT
+			if [ "${ISO_DISTRO}" == "Mint" ] && grep -Eiq 'Linux Mint 20\.3([[:space:]]|$)' iso-directory-structure/.disk/info; then
+				DISPLAY_WARNING "Mint 20.3 is EOL; retaining its legacy boot compatibility path. This does not restore security updates."
+			else
+				DISPLAY_MESSAGE "ISO is EOL."
+				MESSY_EXIT
+			fi
 		fi
 	else
 		DISPLAY_MESSAGE "Cannot determine EOL for ISO."
@@ -3850,12 +3722,6 @@ function SPIN_ISO {
 				echo -e "\\t(-b Linuxium)"
 				echo -e "\\t(-p binutils)"
 				echo -e "\\t(-f update-modules)"
-			else
-				echo "${README[${README_ARRAY}]}"
-				echo -e "\\t(-l ${ATOM_WIFI_PACKAGE})"
-				echo -e "\\t(-f linuxium-install-UCM-files.sh -f wrapper-linuxium-install-UCM-files.sh)"
-				echo -e "\\t(-f linuxium-install-broadcom-drivers.sh -f wrapper-linuxium-install-broadcom-drivers.sh)"
-				echo -e "\\t(-c wrapper-linuxium-install-UCM-files.sh -c wrapper-linuxium-install-broadcom-drivers.sh)"
 			fi
 		elif [ "${README[${README_ARRAY}]:0:7}" == "--boot " ]; then
 			if [ "${BOOT}" == "linuxium" ]; then
@@ -4055,6 +3921,30 @@ function SPIN_ISO {
 }
 
 # isorespin
+# Dispatch before the legacy dependency checks (which require sudo even for help).
+# The embedded 8.7.1 boot archive below remains unchanged for Mint 20.3.
+for ISORESPIN_ARG in "$@"; do
+	if [ "${ISORESPIN_ARG}" = "--atom" ]; then
+		echo "isorespin.sh: --atom has been removed; IA32 UEFI support does not require legacy Atom drivers." >&2
+		exit 2
+	fi
+done
+case "${1:-}" in
+	-h|--help) USAGE; exit ;;
+	-v|--version) echo "isorespin.sh ${VERSION} + IA32 adapters"; exit ;;
+esac
+ISORESPIN_LIB="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/isorespin"
+if [ "$#" -gt 0 ]; then
+	if [ ! -f "${ISORESPIN_LIB}/modern.py" ]; then
+		echo "isorespin.sh: keep lib/isorespin beside this script (see docs/isorespin.md)." >&2
+		exit 2
+	fi
+	python3 "${ISORESPIN_LIB}/modern.py" --dispatch "$@"
+	ISORESPIN_DISPATCH_STATUS=$?
+	if [ "${ISORESPIN_DISPATCH_STATUS}" -ne 78 ]; then
+		exit "${ISORESPIN_DISPATCH_STATUS}"
+	fi
+fi
 CHECK_PACKAGE_DEPENDENCIES
 CHECK_FOR_EXCLUSIVITY
 NUMBER_OF_ARGUMENTS=${#}
