@@ -3,3 +3,4 @@ __pycache__/
 isorespin-build-*/
 /linuxium-*.iso
 /linuxium-*.iso.build.json
+.idea
